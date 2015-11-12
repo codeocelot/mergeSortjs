@@ -1,5 +1,6 @@
 var cluster = require('cluster');
 var numCPUs = require('os').cpus().length;
+var Promise = require('bluebird');
 
 function mergeSort(arr){
   if(!arr || arr.length === 1) return arr;
@@ -43,19 +44,62 @@ function mergeSortMoreAsync(arr,callback){
     return callback(arr);
   }
   var left = arr.splice(0,Math.ceil(arr.length/2));
-  setTimeout(function(){
+  setImmediate(function(){
     mergeSortAsync(left,function(resFromLeft){
-      setTimeout(function(){
+      setImmediate(function(){
         mergeSortAsync(arr,function(resFromRight){
           var res = merge(resFromLeft,resFromRight);
           callback(res);
-        },0);
+        });
       })
 
     });
 
-  },0);
+  });
 }
+
+function mergeSortBluebirdA(arr){
+  if(!arr || arr.length === 1) return arr;
+  var left = arr.splice(0,Math.ceil(arr.length/2));
+  var resFromLeft = new Promise(
+    function(resolve,reject){
+      return resolve(mergeSortBluebirdA(left));
+    }
+  );
+  var resFromRight = new Promise(
+    function(resolve,reject){
+      return resolve(mergeSortBluebirdA(arr));
+    }
+  );
+  return Promise.all([resFromLeft,resFromRight])
+    .then(function(results){
+      return merge(results[0],results[1]);
+    })
+}
+
+function mergeSortBluebirdB(arr){
+  if(!arr || arr.length === 1) return arr;
+  var left = arr.splice(0,Math.ceil(arr.length/2));
+  var resFromLeft = new Promise(
+    function(resolve,reject){
+      return resolve(mergeSortBluebirdB(left));
+    }
+  );
+  var resFromRight = new Promise(
+    function(resolve,reject){
+      return resolve(mergeSortBluebirdB(arr));
+    }
+  );
+  return Promise.all([resFromLeft,resFromRight])
+    .then(function(results){
+      return new Promise(
+        function(resolve,reject){
+          return resolve(merge(results[0],results[1]))
+        }
+      )
+    })
+}
+
 
 function mergeSort_async(arr,callback) {
 setTimeout ( function() {
@@ -68,5 +112,7 @@ module.exports = {
   mergeSort:mergeSort,
   mergeSort_async:mergeSort_async,
   mergeSortAsync:mergeSortAsync,
-  mergeSortMoreAsync:mergeSortMoreAsync
+  mergeSortMoreAsync:mergeSortMoreAsync,
+  bluebirdA:mergeSortBluebirdA,
+  bluebirdB:mergeSortBluebirdB
 }
